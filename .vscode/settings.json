@@ -1,0 +1,7 @@
+{
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "clangd.arguments": [
+        "--query-driver=/usr/bin/c++,/usr/bin/clang++",
+        "--header-insertion=never"
+    ]
+}

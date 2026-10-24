@@ -1,0 +1,14 @@
+{
+  "version": 6,
+  "configurePresets": [
+    { "name": "dev", "binaryDir": "${sourceDir}/build", "generator": "Ninja",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "SANITIZE": "ON" } }
+  ],
+  "buildPresets": [ { "name": "dev", "configurePreset": "dev" } ],
+  "testPresets":  [ { "name": "dev", "configurePreset": "dev",
+                      "output": { "outputOnFailure": true } } ],
+  "workflowPresets": [ { "name": "dev", "steps": [
+      { "type": "configure", "name": "dev" },
+      { "type": "build",     "name": "dev" },
+      { "type": "test",      "name": "dev" } ] } ]
+}
