@@ -8,7 +8,7 @@
 #include "crc8.hpp"
 
 #include <array>
-#include <compare>      // operator<=> (C++20)
+#include <compare>      // IWYU pragma: keep  (needed by defaulted operator<=>)
 #include <cstddef>
 #include <cstdint>
 #include <span>
