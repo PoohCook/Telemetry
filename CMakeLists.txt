@@ -12,6 +12,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(SANITIZE "Build with AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
+option(TSAN     "Build with ThreadSanitizer" OFF)
+
+if(SANITIZE AND TSAN)
+    message(FATAL_ERROR "SANITIZE and TSAN can't be combined; use separate build directories")
+endif()
 
 # ---- Shared build settings --------------------------------------------------
 # An INTERFACE target carries flags, not code. Only targets that link it get
@@ -20,7 +25,7 @@ add_library(project_options INTERFACE)
 target_compile_options(project_options INTERFACE
     -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wshadow -Werror)
 
-#Sanitizers go on EVERY target, including Catch2. ASan needs all code that
+# Sanitizers go on EVERY target, including Catch2. ASan needs all code that
 # touches a std::vector/std::string to be instrumented, or it reports false
 # container-overflow errors. Must come before FetchContent_MakeAvailable.
 if(SANITIZE)
@@ -28,6 +33,34 @@ if(SANITIZE)
                         -fno-sanitize-recover=undefined -fno-omit-frame-pointer)
     add_link_options(-fsanitize=address,undefined)
 endif()
+
+# Same rule for ThreadSanitizer: it can only reason about code it instruments.
+if(TSAN)
+    add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=thread)
+endif()
+
+# ---- Standard library feature checks ----------------------------------------
+# Some libc++ releases ship std::jthread behind -fexperimental-library.
+# Try without it first; add it only if that's what makes jthread work.
+include(CheckCXXSourceCompiles)
+set(JTHREAD_TEST_SOURCE "#include <thread>\nint main() { std::jthread t{[] {}}; }")
+check_cxx_source_compiles("${JTHREAD_TEST_SOURCE}" HAVE_JTHREAD)
+if(NOT HAVE_JTHREAD)
+    set(CMAKE_REQUIRED_FLAGS -fexperimental-library)
+    set(CMAKE_REQUIRED_LINK_OPTIONS -fexperimental-library)
+    check_cxx_source_compiles("${JTHREAD_TEST_SOURCE}" HAVE_JTHREAD_EXPERIMENTAL)
+    unset(CMAKE_REQUIRED_FLAGS)
+    unset(CMAKE_REQUIRED_LINK_OPTIONS)
+    if(HAVE_JTHREAD_EXPERIMENTAL)
+        add_compile_options(-fexperimental-library)
+        add_link_options(-fexperimental-library)
+    else()
+        message(FATAL_ERROR "std::jthread is not available with this compiler")
+    endif()
+endif()
+
+find_package(Threads REQUIRED)           # -pthread where the platform needs it
 
 # ---- Core library: core/inc (headers), core/src (sources) -------------------
 # Header-only until the first .cpp appears in core/src; then it becomes a
@@ -55,11 +88,11 @@ FetchContent_MakeAvailable(Catch2)
 
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)                           # provides catch_discover_tests()
-
 enable_testing()
 
 file(GLOB TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp)
 add_executable(tests ${TEST_SOURCES})
-target_link_libraries(tests PRIVATE core project_options Catch2::Catch2WithMain)
+target_link_libraries(tests PRIVATE core project_options Catch2::Catch2WithMain Threads::Threads)
 
-catch_discover_tests(tests)              # registers each TEST_CASE with ctest
+# One ctest entry per TEST_CASE; tags become labels, so `ctest -L concurrent` works.
+catch_discover_tests(tests ADD_TAGS_AS_LABELS)

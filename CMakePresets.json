@@ -1,14 +1,29 @@
 {
   "version": 6,
   "configurePresets": [
-    { "name": "dev", "binaryDir": "${sourceDir}/build", "generator": "Ninja",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "SANITIZE": "ON" } }
+    { "name": "base", "hidden": true, "generator": "Ninja",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } },
+    { "name": "dev",  "inherits": "base", "binaryDir": "${sourceDir}/build",
+      "cacheVariables": { "SANITIZE": "ON",  "TSAN": "OFF" } },
+    { "name": "tsan", "inherits": "base", "binaryDir": "${sourceDir}/build-tsan",
+      "cacheVariables": { "SANITIZE": "OFF", "TSAN": "ON" } }
   ],
-  "buildPresets": [ { "name": "dev", "configurePreset": "dev" } ],
-  "testPresets":  [ { "name": "dev", "configurePreset": "dev",
-                      "output": { "outputOnFailure": true } } ],
-  "workflowPresets": [ { "name": "dev", "steps": [
-      { "type": "configure", "name": "dev" },
-      { "type": "build",     "name": "dev" },
-      { "type": "test",      "name": "dev" } ] } ]
+  "buildPresets": [
+    { "name": "dev",  "configurePreset": "dev" },
+    { "name": "tsan", "configurePreset": "tsan" }
+  ],
+  "testPresets": [
+    { "name": "dev",  "configurePreset": "dev",  "output": { "outputOnFailure": true } },
+    { "name": "tsan", "configurePreset": "tsan", "output": { "outputOnFailure": true } }
+  ],
+  "workflowPresets": [
+    { "name": "dev", "steps": [
+        { "type": "configure", "name": "dev" },
+        { "type": "build",     "name": "dev" },
+        { "type": "test",      "name": "dev" } ] },
+    { "name": "tsan", "steps": [
+        { "type": "configure", "name": "tsan" },
+        { "type": "build",     "name": "tsan" },
+        { "type": "test",      "name": "tsan" } ] }
+  ]
 }
